@@ -7,6 +7,7 @@ import (
 	"time"
 	"regexp"
 	"strconv"
+	"fmt"
 )
 
 var tempRegexp = regexp.MustCompile("\\+TEMP: [0-9]+")
@@ -49,6 +50,19 @@ func splitMessage(con io.Reader, temp chan int, sivert chan int){
 	}
 }
 
+func sendDataToGraphite(id string, value float64){
+	carbon, err := net.Dial("tcp", "graphite.at.hskrk.pl:2003")
+	if err == nil {
+		date := time.Now()
+		message := fmt.Sprintf("%s %f %d\n", id, value, date.Unix())
+		log.Print(message)
+		carbon.Write([]byte(message))
+		carbon.Close()
+	}
+
+
+}
+
 func main() {
 
 	con, err := net.Dial("udp", "10.12.20.11:56345")
@@ -73,10 +87,13 @@ func main() {
 			con.Write([]byte("AT+SIVERT"))
 
 		case v := <- temp : 
-			log.Print("Temperature is ", v)
+			value := float64(v)/10.0
+			sendDataToGraphite("hs.hardroom.temperature", value)
 
 		case v := <- sivert :
- 			log.Print("Radiation is ", v)
+			value := float64(v)/10000.0
+			sendDataToGraphite("hs.hardroom.radiation", value)
+
 		}
 	}
 }
