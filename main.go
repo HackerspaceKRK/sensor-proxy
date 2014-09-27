@@ -11,30 +11,17 @@ import (
 )
 
 var tempRegexp = regexp.MustCompile("\\+TEMP: [0-9]+")
-
-func searchForTemp(buffer []byte, upstream chan int) {
-	match := tempRegexp.Find(buffer)
-	
-	if(match != nil) {
-		value, err := strconv.Atoi(string(match[7:]))
-		if err == nil {
-			upstream <- value
-		}
-	}
-}
-
 var sivertRegexp = regexp.MustCompile("\\+SIVERT: [0-9]+")
 
-func searchForSivert(buffer []byte, upstream chan int) {
-	match := sivertRegexp.Find(buffer)
-	if(match != nil) {
-		value, err := strconv.Atoi(string(match[9:]))
+func searchForMessage(buffer []byte, pattern * regexp.Regexp, offset int, upstream chan int) {
+	match := pattern.Find(buffer)
+	if(match != nil) {n
+		value, err := strconv.Atoi(string(match[offset:]))
 		if err == nil {
 			upstream <- value
 		}
 	}
 }
-
 
 func splitMessage(con io.Reader, temp chan int, sivert chan int){
 	buffer := make([]byte, 256)
@@ -44,8 +31,8 @@ func splitMessage(con io.Reader, temp chan int, sivert chan int){
 			log.Fatal(err)
 		}
 		if(length > 0){
-			searchForTemp(buffer, temp)
-			searchForSivert(buffer, sivert)
+			searchForMessage(buffer, tempRegexp, 7, temp)
+			searchForMessage(buffer, sivertRegexp, 9, sivert)
 		}
 	}
 }
