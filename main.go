@@ -12,6 +12,7 @@ import (
 )
 
 var debug = flag.Bool("debug", false, "Enable debug output")
+var delay = flag.Int("delay", 10, "delay between sensor reads")
 
 var tempRegexp = regexp.MustCompile("\\+TEMP: [0-9]+")
 var sivertRegexp = regexp.MustCompile("\\+SIVERT: [0-9]+")
@@ -66,7 +67,7 @@ func main() {
 
 	con, err := net.Dial("udp", "10.12.20.11:56345")
 
-	timer := time.NewTicker(time.Second * 2)
+	timer := time.NewTicker(time.Second * time.Duration(*delay))
 
 	temp := make(chan int)
 	sivert := make(chan int)
