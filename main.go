@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"fmt"
 	"flag"
+	"net/http"
+	"io/ioutil"
 )
 
 var debug = flag.Bool("debug", false, "Enable debug output")
@@ -64,6 +66,18 @@ func sendDataToGraphite(id string, value float64){
 	}
 }
 
+func handleKdHomeTemperature(){
+	resp, err := http.Get("http://al2.hskrk.pl/api/v2/temp/get")
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	value, err := strconv.ParseFloat(string(body), 64)
+	if(err == nil){
+		sendDataToGraphite("hs.korytarzyk.temperature", value)
+	} else {
+		log.Print("Erro on hd home", err)
+	}
+}
+
 func main() {
 
 	flag.Parse()
@@ -75,7 +89,7 @@ func main() {
 	temp := make(chan float64)
 	sivert := make(chan float64)
 	hum := make(chan float64)
-	press := make(chan float64)
+	press := make(chan float64)	
 
 	if(err != nil){
 		log.Fatal("Could not connect to sensor")
@@ -92,6 +106,7 @@ func main() {
 			con.Write([]byte("AT+SIVERT"))
 			con.Write([]byte("AT+HUM"))
 			con.Write([]byte("AT+PRESS"))
+			go handleKdHomeTemperature()
 
 		case v := <- temp : 
 			value := float64(v)
@@ -106,7 +121,7 @@ func main() {
 			sendDataToGraphite("hs.hardroom.humidity", value)
 
 		case v := <- press :
-			value := float64(v) // AS hPa
+			value := float64(v)
 			sendDataToGraphite("hs.hardroom.pressure", value)
 
 		}
