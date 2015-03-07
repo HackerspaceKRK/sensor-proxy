@@ -14,28 +14,31 @@ import (
 var debug = flag.Bool("debug", false, "Enable debug output")
 var delay = flag.Int("delay", 10, "delay between sensor reads")
 
-var tempRegexp = regexp.MustCompile("\\+TEMP: [0-9]+")
-var sivertRegexp = regexp.MustCompile("\\+SIVERT: [0-9]+")
-var humRegexp = regexp.MustCompile("\\+HUM: [0-9]+")
-var pressRegexp = regexp.MustCompile("\\+PRESS: [0-9]+")
+var tempRegexp = regexp.MustCompile("\\+TEMP: [0-9.]+")
+var sivertRegexp = regexp.MustCompile("\\+SIVERT: [0-9.]+")
+var humRegexp = regexp.MustCompile("\\+HUM: [0-9.]+")
+var pressRegexp = regexp.MustCompile("\\+PRESS: [0-9.]+")
 
-func searchForMessage(buffer []byte, pattern * regexp.Regexp, offset int, upstream chan int) {
+func searchForMessage(buffer []byte, pattern * regexp.Regexp, offset int, upstream chan float64) {
 	match := pattern.Find(buffer)
 	if(match != nil) {
-		value, err := strconv.Atoi(string(match[offset:]))
+		value, err := strconv.ParseFloat(string(match[offset:]), 64)
 		if err == nil {
 			upstream <- value
 		} else {
-			log.Print("Cound not convert value to int.", string(match[offset:]))
+			log.Print("Cound not convert value to float.", string(match[offset:]))
 		}
 	}
 }
 
-func splitMessage(con io.Reader, temp chan int, sivert chan int, hum chan int, press chan int){
+func splitMessage(con io.Reader, temp chan float64, sivert chan float64, hum chan float64, press chan float64){
 	buffer := make([]byte, 256)
 
 	for {
 		length, err := con.Read(buffer)
+		if(*debug){
+			log.Print(string(buffer))
+		}
 		if (err != nil) {
 			log.Fatal(err)
 		}
@@ -52,7 +55,7 @@ func sendDataToGraphite(id string, value float64){
 	carbon, err := net.Dial("tcp", "graphite.at.hskrk.pl:2003")
 	if err == nil {
 		date := time.Now()
-		message := fmt.Sprintf("%s %f %d\n", id, value, date.Unix())
+		message := fmt.Sprintf("%s %.16f %d\n", id, value, date.Unix())
 		if(*debug){
 			log.Print(message)
 		}
@@ -69,10 +72,10 @@ func main() {
 
 	timer := time.NewTicker(time.Second * time.Duration(*delay))
 
-	temp := make(chan int)
-	sivert := make(chan int)
-	hum := make(chan int)
-	press := make(chan int)
+	temp := make(chan float64)
+	sivert := make(chan float64)
+	hum := make(chan float64)
+	press := make(chan float64)
 
 	if(err != nil){
 		log.Fatal("Could not connect to sensor")
@@ -91,11 +94,11 @@ func main() {
 			con.Write([]byte("AT+PRESS"))
 
 		case v := <- temp : 
-			value := float64(v)/10.0 
+			value := float64(v)
 			sendDataToGraphite("hs.hardroom.temperature", value)
 
 		case v := <- sivert :
-			value := float64(v)/10000.0 // AS uS/h
+			value := float64(v) 
 			sendDataToGraphite("hs.hardroom.radiation", value)
 
 		case v := <- hum :
@@ -103,7 +106,7 @@ func main() {
 			sendDataToGraphite("hs.hardroom.humidity", value)
 
 		case v := <- press :
-			value := float64(v)/100 // AS hPa
+			value := float64(v) // AS hPa
 			sendDataToGraphite("hs.hardroom.pressure", value)
 
 		}
