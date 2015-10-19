@@ -14,7 +14,7 @@ import (
 )
 
 var debug = flag.Bool("debug", false, "Enable debug output")
-var delay = flag.Int("delay", 10, "delay between sensor reads")
+var delay = flag.Int("delay", 10, "Interval between sensor reads")
 
 var tempRegexp = regexp.MustCompile("\\+TEMP: [0-9.]+")
 var sivertRegexp = regexp.MustCompile("\\+SIVERT: [0-9.]+")
@@ -74,7 +74,7 @@ func handleKdHomeTemperature(){
 	if(err == nil){
 		sendDataToGraphite("hs.korytarzyk.temperature", value)
 	} else {
-		log.Print("Erro on hd home", err)
+		log.Print("Error getting data from KDhome", err)
 	}
 }
 
@@ -92,7 +92,7 @@ func main() {
 	press := make(chan float64)	
 
 	if(err != nil){
-		log.Fatal("Could not connect to sensor")
+		log.Fatal("Could not connect to weather stationFixed ")
 	}
 
 	go splitMessage(con, temp, sivert, hum, press)
